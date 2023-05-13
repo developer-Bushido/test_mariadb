@@ -1,0 +1,4 @@
+---
+mariadb_packages:
+  - mariadb-server
+  - mariadb-client
