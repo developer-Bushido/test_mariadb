@@ -135,26 +135,30 @@ data "http" "current_ip" {
   url = "http://ipv4.icanhazip.com"
 }
 
-output "webserver_ip" {
-  value       = aws_instance.my_WEB.public_ip
-  description = "Public IP of the Web server"
-}
-
-output "dbserver_ips" {
-  value       = aws_instance.my_DB[*].public_ip
-  description = "Public IPs of the DB servers"
-}
-
 resource "null_resource" "ansible_inventory" {
   triggers = {
     always_run = timestamp()
   }
 
   provisioner "local-exec" {
-    command = <<EOF
-    echo "[web]\n${aws_instance.my_WEB.public_ip}\n\n[db]\n${join("\n", aws_instance.my_DB.*.public_ip)}" > ../ansible/inventory.ini
-    EOF
+    command = <<EOH
+    echo '---
+all:
+  children:
+    web:
+      hosts:
+        ${join("\n        ", aws_instance.my_WEB.*.public_ip)}
+    db:
+      children:
+        master_db:
+          hosts:
+            ${element(aws_instance.my_DB.*.public_ip, 0)}
+        slave_db:
+          hosts:
+            ${join("\n            ", slice(aws_instance.my_DB.*.public_ip, 1, length(aws_instance.my_DB.*.public_ip)))}
+' > ../ansible/inventory.yml
+    EOH
   }
-
-  depends_on = [aws_instance.my_WEB, aws_instance.my_DB]
 }
+
+
