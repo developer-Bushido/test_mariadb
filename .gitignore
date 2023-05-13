@@ -213,3 +213,6 @@ terraform.rc
 
 # Ignore *.pem keys
 *.pem
+
+# Ignore the ansible inventory because it always recreates
+inventory.yml
