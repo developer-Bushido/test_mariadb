@@ -71,6 +71,25 @@ resource "aws_security_group_rule" "db_security_group_replication_access" {
   cidr_blocks       = [format("%s/32", element(aws_instance.my_DB_master.*.private_ip, count.index))]
 }
 
+resource "aws_security_group_rule" "db_security_group_replication_access2" {
+  count             = length(aws_instance.my_DB_slave.*.id)
+  security_group_id = aws_security_group.db_security_group.id
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+  cidr_blocks       = [format("%s/32", element(aws_instance.my_DB_slave.*.private_ip, count.index))]
+}
+
+resource "aws_security_group_rule" "db_security_group_db_control_access" {
+  security_group_id = aws_security_group.db_security_group.id
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
+}
+
 
 # WEB SERVERS
 resource "aws_security_group" "web_server" {
