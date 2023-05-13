@@ -21,14 +21,25 @@ resource "aws_security_group" "db_security_group" {
   }
 }
 
-resource "aws_instance" "my_DB" {
+resource "aws_instance" "my_DB_master" {
+  count                  = 1
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t3.micro"
+  key_name               = "admin_kp"
+  vpc_security_group_ids = [aws_security_group.db_security_group.id]
+  tags = {
+    Name = "DB Master Server"
+  }
+}
+
+resource "aws_instance" "my_DB_slave" {
   count                  = 2
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
   key_name               = "admin_kp"
   vpc_security_group_ids = [aws_security_group.db_security_group.id]
   tags = {
-    Name = "DB Server"
+    Name = "DB Slave Server"
   }
 }
 
@@ -51,13 +62,32 @@ resource "aws_security_group_rule" "db_security_group_db_access" {
 }
 
 resource "aws_security_group_rule" "db_security_group_replication_access" {
-  count             = length(aws_instance.my_DB.*.id)
+  count             = length(aws_instance.my_DB_master.*.id)
   security_group_id = aws_security_group.db_security_group.id
   type              = "ingress"
   from_port         = 3306
   to_port           = 3306
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", element(aws_instance.my_DB.*.private_ip, count.index))]
+  cidr_blocks       = [format("%s/32", element(aws_instance.my_DB_master.*.private_ip, count.index))]
+}
+
+resource "aws_security_group_rule" "db_security_group_replication_access2" {
+  count             = length(aws_instance.my_DB_slave.*.id)
+  security_group_id = aws_security_group.db_security_group.id
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+  cidr_blocks       = [format("%s/32", element(aws_instance.my_DB_slave.*.private_ip, count.index))]
+}
+
+resource "aws_security_group_rule" "db_security_group_db_control_access" {
+  security_group_id = aws_security_group.db_security_group.id
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
 }
 
 
@@ -140,9 +170,14 @@ output "webserver_ip" {
   description = "Public IP of the Web server"
 }
 
-output "dbserver_ips" {
-  value       = aws_instance.my_DB[*].public_ip
-  description = "Public IPs of the DB servers"
+output "db_master_server_ips" {
+  value       = aws_instance.my_DB_master.*.public_ip
+  description = "Public IPs of the DB master servers"
+}
+
+output "db_slave_server_ips" {
+  value       = aws_instance.my_DB_slave.*.public_ip
+  description = "Public IPs of the DB slave servers"
 }
 
 resource "null_resource" "ansible_inventory" {
@@ -152,9 +187,24 @@ resource "null_resource" "ansible_inventory" {
 
   provisioner "local-exec" {
     command = <<EOF
-    echo "[web]\n${aws_instance.my_WEB.public_ip}\n\n[db]\n${join("\n", aws_instance.my_DB.*.public_ip)}" > ../ansible/inventory.ini
+    cat > ../ansible/inventory.yml <<'INV'
+---
+all:
+  children:
+    web:
+      hosts:
+        ${aws_instance.my_WEB.public_ip}:
+    db:
+      children:
+        master_db:
+          hosts:
+${join("\n", formatlist("            %s:", aws_instance.my_DB_master.*.public_ip))}
+        slave_db:
+          hosts:
+${join("\n", formatlist("            %s:", aws_instance.my_DB_slave.*.public_ip))}
+INV
     EOF
   }
 
-  depends_on = [aws_instance.my_WEB, aws_instance.my_DB]
+  depends_on = [aws_instance.my_WEB, aws_instance.my_DB_master, aws_instance.my_DB_slave]
 }
