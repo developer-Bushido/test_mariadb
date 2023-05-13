@@ -1,0 +1,76 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+  become: true
+
+- name: Ensure python3-pip is installed
+  apt:
+    name: python3-pip
+    state: present
+  become: true
+
+- name: Ensure necessary Python MySQL library is installed
+  pip:
+    name: PyMySQL
+    state: present
+  become: true
+
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: Allow SSH traffic
+  ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Allow MariaDB traffic
+  ufw:
+    rule: allow
+    port: "3306"
+    proto: tcp
+
+- name: Install necessary packages
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ mariadb_packages }}"
+  become: true
+  notify: restart mariadb
+
+- name: Ensure MariaDB service is enabled and running
+  systemd:
+    name: mariadb
+    state: started
+    enabled: yes
+  become: true
+
+- name: Check if MariaDB root password already exists
+  stat:
+    path: /root/.mariapass
+  register: mariadb_password_file
+
+- name: Generate random root password
+  command: openssl rand -base64 10
+  register: new_mysql_root_password
+  when: not mariadb_password_file.stat.exists
+
+- name: Store the password in a file
+  copy:
+    content: "{{ new_mysql_root_password.stdout }}"
+    dest: "/root/.mariapass"
+    mode: 0600
+  when: new_mysql_root_password is changed
+
+- name: Configure root password
+  command: mysql -uroot -p"$(cat /root/.mariapass)" -e "SET PASSWORD FOR root@localhost = PASSWORD('{{ new_mysql_root_password.stdout }}');"
+  when: new_mysql_root_password is changed

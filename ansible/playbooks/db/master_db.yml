@@ -1,0 +1,6 @@
+---
+- name: Configure Master DB
+  hosts: master_db
+  become: yes
+  roles:
+    - role: mariadb
