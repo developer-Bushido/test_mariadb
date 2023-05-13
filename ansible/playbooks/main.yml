@@ -1,0 +1,5 @@
+- name: Configure DBs
+  hosts: db
+  become: true
+  roles:
+    - role: mariadb
