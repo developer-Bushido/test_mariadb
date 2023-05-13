@@ -47,6 +47,14 @@
   become: true
   notify: restart mariadb
 
+- name: Allow MariaDB to accept connections from any IP address
+  lineinfile:
+    path: /etc/mysql/mariadb.conf.d/50-server.cnf
+    regexp: '^bind-address\s*='
+    line: "bind-address = 0.0.0.0"
+  notify: restart mariadb
+  become: true
+
 - name: Ensure MariaDB service is enabled and running
   systemd:
     name: mariadb
@@ -74,3 +82,61 @@
 - name: Configure root password
   command: mysql -uroot -p"$(cat /root/.mariapass)" -e "SET PASSWORD FOR root@localhost = PASSWORD('{{ new_mysql_root_password.stdout }}');"
   when: new_mysql_root_password is changed
+
+- name: Check if MariaDB dbadmin password already exists
+  stat:
+    path: /root/.mariapass_dbadmin
+  register: dbadmin_password_file
+  become: true
+  tags: create_dbadmin
+
+- name: Generate random password for dbadmin
+  command: openssl rand -base64 10
+  register: new_dbadmin_password
+  become: true
+  run_once: true
+  when: not dbadmin_password_file.stat.exists
+  tags: create_dbadmin
+
+- name: Store the dbadmin password in a file
+  copy:
+    content: "{{ new_dbadmin_password.stdout }}"
+    dest: "/root/.mariapass_dbadmin"
+    mode: 0600
+  become: true
+  delegate_to: "{{ item }}"
+  with_items: "{{ ansible_play_hosts }}"
+  when: new_dbadmin_password is changed
+  tags: create_dbadmin
+
+- name: Read MariaDB root password from file
+  slurp:
+    src: /root/.mariapass
+  register: mariapass
+  become: true
+  tags: create_dbadmin
+
+- name: Create dbadmin user
+  mysql_user:
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: dbadmin
+    password: "{{ new_dbadmin_password.stdout }}"
+    host: "%"
+    state: present
+  become: true
+  when: new_dbadmin_password is changed
+  tags: create_dbadmin
+
+- name: Grant all privileges to dbadmin
+  mysql_user:
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: dbadmin
+    priv: "*.*:ALL,GRANT"
+    host: "%"
+  become: true
+  when: new_dbadmin_password is changed
+  tags: create_dbadmin
