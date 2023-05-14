@@ -83,6 +83,10 @@
   command: mysql -uroot -p"$(cat /root/.mariapass)" -e "SET PASSWORD FOR root@localhost = PASSWORD('{{ new_mysql_root_password.stdout }}');"
   when: new_mysql_root_password is changed
 
+- name: Set root to use the unix_socket plugin
+  command: mysql -uroot -p"$(cat /root/.mariapass)" -e "UPDATE mysql.user SET plugin = 'unix_socket' WHERE User = 'root'; FLUSH PRIVILEGES;"
+  when: new_mysql_root_password is changed
+
 - name: Check if MariaDB dbadmin password already exists
   stat:
     path: /root/.mariapass_dbadmin
