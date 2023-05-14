@@ -94,7 +94,6 @@
   command: openssl rand -base64 10
   register: new_dbadmin_password
   become: true
-  run_once: true
   when: not dbadmin_password_file.stat.exists
   tags: create_dbadmin
 
@@ -104,8 +103,6 @@
     dest: "/root/.mariapass_dbadmin"
     mode: 0600
   become: true
-  delegate_to: "{{ item }}"
-  with_items: "{{ ansible_play_hosts }}"
   when: new_dbadmin_password is changed
   tags: create_dbadmin
 
