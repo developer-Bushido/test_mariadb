@@ -6,8 +6,8 @@ resource "null_resource" "ansible_inventory" {
   provisioner "local-exec" {
     command = "echo '${templatefile("${path.module}/../ansible/inventory.tpl", {
       web_ip     = aws_instance.my_WEB.public_ip,
-      master_ips = join("\n", formatlist("            %s:", aws_instance.my_DB_master.*.public_ip)),
-      slave_ips  = join("\n", formatlist("            %s:", aws_instance.my_DB_slave.*.public_ip))
+      master_ips = aws_instance.my_DB_master.*.public_ip,
+      slave_ips  = aws_instance.my_DB_slave.*.public_ip
       })
     }' > ../ansible/inventory.yml"
   }

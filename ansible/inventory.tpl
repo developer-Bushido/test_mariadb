@@ -8,7 +8,11 @@ all:
       children:
         master_db:
           hosts:
-${master_ips}
+%{ for ip in master_ips ~}
+            ${ip}:
+%{ endfor ~}
         slave_db:
           hosts:
-${slave_ips}
+%{ for ip in slave_ips ~}
+            ${ip}:
+%{ endfor ~}
