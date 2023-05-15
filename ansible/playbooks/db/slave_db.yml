@@ -1,6 +1,7 @@
 ---
 - name: Configure Slave DB
   hosts: slave_db
-  become: yes
+  become: true
   roles:
     - role: mariadb
+    - role: slave_replica

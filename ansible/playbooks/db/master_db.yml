@@ -1,7 +1,8 @@
 ---
 - name: Configure Master DB
   hosts: master_db
-  become: yes
+  become: true
   roles:
     - role: mariadb
     - role: sample_db
+    - role: master_replica

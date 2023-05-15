@@ -141,3 +141,16 @@
   become: true
   when: new_dbadmin_password is changed
   tags: create_dbadmin
+
+- name: Check if Blackhole storage engine is installed
+  shell: >
+    mysql -e "SHOW PLUGINS;" | grep -iq blackhole
+  register: blackhole_installed
+  ignore_errors: true
+  tags: install_plugin
+
+- name: Enable Blackhole storage engine
+  command: >
+    mysql -e "INSTALL PLUGIN blackhole SONAME 'ha_blackhole';"
+  when: blackhole_installed.rc != 0
+  tags: install_plugin
