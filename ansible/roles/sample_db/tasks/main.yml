@@ -1,9 +1,4 @@
 ---
-- name: Enable Blackhole storage engine
-  command: mysql -e "INSTALL PLUGIN blackhole SONAME 'ha_blackhole';"
-  become: true
-  tags: sample_db
-
 - name: Install necessary packages
   apt:
     name: "{{ item }}"
@@ -16,8 +11,8 @@
 
 - name: Clone the sample database repository
   git:
-    repo: "https://github.com/Ivanitch/sample-mysql-db.git"
-    dest: /tmp/sample-mysql-db
+    repo: "https://github.com/datacharmer/test_db.git"
+    dest: /tmp/test_db
     clone: yes
     update: yes
   become: true
@@ -26,7 +21,7 @@
 - name: Load the sample database
   shell: "mysql < employees.sql"
   args:
-    chdir: /tmp/sample-mysql-db/employees
+    chdir: /tmp/test_db
     executable: /bin/bash
   become: true
   ignore_errors: true
@@ -35,7 +30,7 @@
 - name: Test the sample database
   shell: "mysql -t < test_employees_md5.sql"
   args:
-    chdir: /tmp/sample-mysql-db/employees
+    chdir: /tmp/test_db
     executable: /bin/bash
   become: true
   ignore_errors: true

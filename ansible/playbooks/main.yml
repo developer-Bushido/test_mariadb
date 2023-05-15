@@ -3,3 +3,16 @@
   become: true
   roles:
     - role: mariadb
+
+- name: Configure Master DB
+  hosts: master_db
+  become: true
+  roles:
+    - role: sample_db
+    - role: master_replica
+
+- name: Configure Slave DB
+  hosts: slave_db
+  become: true
+  roles:
+    - role: slave_replica
