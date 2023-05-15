@@ -147,6 +147,9 @@
     mysql -e "SHOW PLUGINS;" | grep -iq blackhole
   register: blackhole_installed
   ignore_errors: true
+  failed_when: false
+  changed_when: false
+  become: true
   tags: install_plugin
 
 - name: Enable Blackhole storage engine
