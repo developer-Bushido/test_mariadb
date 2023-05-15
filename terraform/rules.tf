@@ -17,7 +17,7 @@ resource "aws_security_group_rule" "db_security_group_db_access" {
   protocol          = "tcp"
   from_port         = 3306
   to_port           = 3306
-  cidr_blocks       = [format("%s/32", aws_instance.my_WEB.private_ip)]
+  cidr_blocks       = [format("%s/32", aws_instance.my_WEB.public_ip)]
 }
 
 resource "aws_security_group_rule" "db_security_group_replication_access_from_master" {
@@ -27,7 +27,7 @@ resource "aws_security_group_rule" "db_security_group_replication_access_from_ma
   from_port         = 3306
   to_port           = 3306
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", element(aws_instance.my_DB_master.*.private_ip, count.index))]
+  cidr_blocks       = [format("%s/32", element(aws_instance.my_DB_master.*.public_ip, count.index))]
 }
 
 resource "aws_security_group_rule" "db_security_group_replication_access_from_slave" {
@@ -37,7 +37,7 @@ resource "aws_security_group_rule" "db_security_group_replication_access_from_sl
   from_port         = 3306
   to_port           = 3306
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", element(aws_instance.my_DB_slave.*.private_ip, count.index))]
+  cidr_blocks       = [format("%s/32", element(aws_instance.my_DB_slave.*.public_ip, count.index))]
 }
 
 resource "aws_security_group_rule" "db_security_group_db_control_access" {
