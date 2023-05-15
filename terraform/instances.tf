@@ -17,7 +17,7 @@ resource "aws_instance" "my_DB_master" {
 }
 
 resource "aws_instance" "my_DB_slave" {
-  count                  = 1
+  count                  = 3
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
   key_name               = "admin_kp"
