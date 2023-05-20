@@ -62,6 +62,25 @@ resource "aws_security_group_rule" "SGR_orchestrator_consul_admin_WEB_client" {
 ###########################################################################################
 ##################################### PROXYSQL SERVERS ####################################
 ###########################################################################################
+
+resource "aws_security_group_rule" "SGR_proxysql_Settings" {
+  count             = length(aws_instance.proxysql.*.id)
+  security_group_id = aws_security_group.proxysql_security_group.id
+  type              = "ingress"
+  from_port         = 6032
+  to_port           = 6032
+  protocol          = "tcp"
+  cidr_blocks       = [format("%s/32", element(aws_instance.proxysql.*.public_ip, count.index))]
+}
+resource "aws_security_group_rule" "SGR_proxysql_Input" {
+  count             = length(aws_instance.proxysql.*.id)
+  security_group_id = aws_security_group.proxysql_security_group.id
+  type              = "ingress"
+  from_port         = 6033
+  to_port           = 6033
+  protocol          = "tcp"
+  cidr_blocks       = [format("%s/32", element(aws_instance.proxysql.*.public_ip, count.index))]
+}
 resource "aws_security_group_rule" "SGR_proxysql_Server_RPC" {
   count             = length(aws_instance.proxysql.*.id)
   security_group_id = aws_security_group.proxysql_security_group.id
