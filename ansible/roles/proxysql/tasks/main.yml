@@ -1,0 +1,100 @@
+---
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+  tags: install
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+  tags: install
+
+- name: Allow TCP traffic
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  with_items:
+    - 22
+    - 6032
+    - 6033
+    - 8300
+    - 8301
+    - 8302
+    - 8303
+    - 8500
+    - 8600
+  tags: ports
+
+- name: Allow UDP traffic
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  with_items:
+    - 8301
+    - 8302
+  tags: ports
+
+- name: Remove old ProxySQL repository file
+  file:
+    path: /etc/apt/sources.list.d/proxysql.list
+    state: absent
+  become: true
+  tags: proxysql
+
+- name: Remove old ProxySQL repository file (focal)
+  file:
+    path: /etc/apt/sources.list.d/repo_proxysql_com_ProxySQL_proxysql_2_5_x_focal.list
+    state: absent
+  become: true
+  tags: proxysql
+
+- name: Install prerequisite packages
+  apt:
+    name:
+      - lsb-release
+      - wget
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+    state: present
+  become: true
+  tags: proxysql
+
+- name: Add ProxySQL repository key
+  shell: wget -O - 'https://repo.proxysql.com/ProxySQL/proxysql-2.5.x/repo_pub_key' | apt-key add -
+  become: true
+  tags: proxysql
+
+- name: Add ProxySQL repository
+  shell: echo deb https://repo.proxysql.com/ProxySQL/proxysql-2.5.x/$(lsb_release -sc)/ ./ | tee /etc/apt/sources.list.d/proxysql.list
+  become: true
+  tags: proxysql
+
+- name: Install ProxySQL
+  apt:
+    name: proxysql
+    state: latest
+    update_cache: yes
+  become: true
+  tags: proxysql
+
+- name: Configure ProxySQL
+  template:
+    src: proxysql.cnf.j2
+    dest: /etc/proxysql.cnf
+  become: true
+  notify: restart proxysql
+  tags: proxysql
+
+- name: Enable and start ProxySQL service
+  systemd:
+    name: proxysql
+    state: started
+    enabled: true
+  become: true
+  tags: proxysql

@@ -1,0 +1,106 @@
+- name: Install unzip utility
+  apt:
+    name: unzip
+    state: present
+  become: true
+  tags: consul_agent
+
+- name: Install OpenSSL package
+  package:
+    name: openssl
+    state: present
+  become: true
+  tags: consul_agent
+
+- name: Install Consul
+  unarchive:
+    src: https://releases.hashicorp.com/consul/1.15.2/consul_1.15.2_linux_amd64.zip
+    dest: /usr/local/bin/
+    remote_src: yes
+    creates: /usr/local/bin/consul
+  become: true
+  tags: consul_agent
+
+- name: Create Consul certificates directory
+  file:
+    path: /etc/consul.d/certs
+    state: directory
+  tags: consul_agent
+
+- name: Generate Consul CA private key
+  openssl_privatekey:
+    path: /etc/consul.d/certs/consul-agent-ca-key.pem
+    size: 4096
+  tags: consul_agent
+
+- name: Generate Consul CA CSR
+  command:
+    cmd: openssl req -new -key /etc/consul.d/certs/consul-agent-ca-key.pem -out /etc/consul.d/certs/consul-agent-ca.csr -subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=Consul CA"
+  tags: consul_agent
+
+- name: Generate Consul CA self-signed certificate
+  command:
+    cmd: openssl x509 -req -in /etc/consul.d/certs/consul-agent-ca.csr -signkey /etc/consul.d/certs/consul-agent-ca-key.pem -out /etc/consul.d/certs/consul-agent-ca.pem
+  tags: consul_agent
+
+- name: Generate Consul server private key
+  openssl_privatekey:
+    path: /etc/consul.d/certs/server-key.pem
+    type: RSA
+    size: 2048
+  tags: consul_agent
+
+- name: Generate Consul server CSR
+  command:
+    cmd: openssl req -new -key /etc/consul.d/certs/server-key.pem -out /etc/consul.d/certs/server.csr -subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=Consul Server"
+  tags: consul_agent
+
+- name: Sign Consul server certificate with CA
+  command:
+    cmd: openssl x509 -req -in /etc/consul.d/certs/server.csr -CA /etc/consul.d/certs/consul-agent-ca.pem -CAkey /etc/consul.d/certs/consul-agent-ca-key.pem -CAcreateserial -out /etc/consul.d/certs/server-cert.pem
+  tags: consul_agent
+
+- name: Remove CSR files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/consul.d/certs/consul-agent-ca.csr
+    - /etc/consul.d/certs/server.csr
+  tags: consul_agent
+
+- name: Create Consul configuration directory
+  file:
+    path: /etc/consul.d
+    state: directory
+  become: true
+  tags: consul_agent
+
+- name: Configure Consul
+  template:
+    src: consul.hcl.j2
+    dest: /etc/consul.d/consul.hcl
+  become: true
+  notify: restart consul
+  tags: consul_agent
+
+- name: Deploy Consul systemd service file
+  copy:
+    src: consul.service
+    dest: /etc/systemd/system/consul.service
+  become: true
+  tags: consul_agent
+
+- name: Reload systemd to recognize Consul service
+  command:
+    cmd: systemctl daemon-reload
+  become: true
+  tags: consul_agent
+
+- name: Enable and start Consul service
+  systemd:
+    name: consul
+    state: started
+    enabled: true
+  become: true
+  tags: consul_agent
