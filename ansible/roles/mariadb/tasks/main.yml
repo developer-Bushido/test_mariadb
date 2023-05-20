@@ -107,20 +107,10 @@
     src: /root/.mariapass
   register: mariapass
   become: true
-  tags: create_dbadmin
-
-- name: Create dbadmin user
-  mysql_user:
-    login_user: root
-    login_password: "{{ mariapass['content'] | b64decode }}"
-    login_unix_socket: /var/run/mysqld/mysqld.sock
-    name: dbadmin
-    password: "{{ dbadmin_password }}"
-    priv: "*.*:ALL,GRANT"
-    host: "%"
-    state: present
-  become: true
-  tags: create_dbadmin
+  tags:
+    - sync_users
+    - configure_master
+    - configure_slave
 
 - name: Check if Blackhole storage engine is installed
   shell: >
@@ -160,7 +150,23 @@
 - name: Get the master host IP
   set_fact:
     master_host_ip: "{{ groups['mariadb'][0] }}"
-  tags: configure
+  tags:
+    - configure_master
+    - configure_slave
+
+- name: Create replication_user
+  mysql_user:
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: replica_user
+    password: "{{ mariadb.replica_user.password }}"
+    priv: "{{ mariadb.replica_user.privileges }}"
+    host: "{{ mariadb.replica_user.host }}"
+    state: present
+  no_log: True
+  when: inventory_hostname == master_host_ip
+  tags: configure_master
 
 - name: Configure server as a replication master
   mysql_replication:
@@ -170,20 +176,6 @@
     login_unix_socket: /var/run/mysqld/mysqld.sock
     primary_connect_retry: 60
     primary_use_gtid: current_pos
-  when: inventory_hostname == master_host_ip
-  tags: configure_master
-
-- name: Create replication user
-  mysql_user:
-    login_user: root
-    login_password: "{{ mariapass['content'] | b64decode }}"
-    login_unix_socket: /var/run/mysqld/mysqld.sock
-    name: replica_user
-    password: "{{ replication_password }}"
-    priv: "*.*:REPLICATION SLAVE"
-    host: "%"
-    state: present
-  become: true
   when: inventory_hostname == master_host_ip
   tags: configure_master
 
@@ -210,7 +202,7 @@
     mode: changeprimary
     master_host: "{{ master_host_ip }}"
     master_user: replica_user
-    master_password: "{{ replication_password }}"
+    master_password: "{{ mariadb.replica_user.password }}"
     login_user: root
     login_password: "{{ mariapass['content'] | b64decode }}"
     login_unix_socket: /var/run/mysqld/mysqld.sock
@@ -232,4 +224,58 @@
     state: restarted
     enabled: yes
   become: true
-  tags: finish_configuration
+  tags:
+    - configure_master
+    - configure_slave
+
+- name: Add special users
+  mysql_user:
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: "{{ item.key }}"
+    password: "{{ item.value.password }}"
+    priv: "{{ item.value.privileges }}"
+    host: "{{ item.value.host }}"
+    state: present
+  loop: "{{ mariadb.special_users | dict2items }}"
+  no_log: True
+  when: inventory_hostname == master_host_ip
+  tags: sync_users
+
+- name: Add regular users
+  mysql_user:
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: "{{ item.key }}"
+    password: "{{ item.value.password }}"
+    priv: "{{ item.value.privileges | default('*.*:SELECT,UPDATE,DELETE,INSERT') }}"
+    host: "{{ item.value.host | default('%') }}"
+    state: present
+  loop: "{{ mariadb.users | dict2items }}"
+  no_log: True
+  when: inventory_hostname == master_host_ip
+  tags: sync_users
+
+- name: Get hosts for absent users
+  command: >
+    mysql -u root -p"{{ mariapass['content'] | b64decode }}" -BNe
+    "SELECT Host FROM mysql.user WHERE User = '{{ item }}'"
+  register: user_hosts
+  changed_when: false
+  with_items: "{{ mariadb.absent_users }}"
+  tags: sync_users
+
+- name: Remove absent users
+  mysql_user:
+    name: "{{ item.item }}"
+    host: "{{ item.stdout }}"
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    state: absent
+  loop: "{{ user_hosts.results }}"
+  when: item.stdout != ''
+  no_log: True
+  tags: sync_users
