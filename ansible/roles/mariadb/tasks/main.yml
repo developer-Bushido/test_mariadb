@@ -3,41 +3,48 @@
   apt:
     update_cache: yes
   become: true
+  tags: install
 
 - name: Ensure python3-pip is installed
   apt:
     name: python3-pip
     state: present
   become: true
+  tags: install
 
 - name: Ensure necessary Python MySQL library is installed
   pip:
     name: PyMySQL
     state: present
   become: true
+  tags: install
 
 - name: Install UFW
   apt:
     name: ufw
     state: present
+  tags: install
 
 - name: Enable UFW
   ufw:
     state: enabled
     policy: deny
     direction: incoming
+  tags: install
 
 - name: Allow SSH traffic
   ufw:
     rule: allow
     port: "22"
     proto: tcp
+  tags: ports
 
 - name: Allow MariaDB traffic
   ufw:
     rule: allow
     port: "3306"
     proto: tcp
+  tags: ports
 
 - name: Install necessary packages
   apt:
@@ -46,6 +53,7 @@
   loop: "{{ mariadb_packages }}"
   become: true
   notify: restart mariadb
+  tags: install_mariadb
 
 - name: Allow MariaDB to accept connections from any IP address
   lineinfile:
@@ -54,6 +62,7 @@
     line: "bind-address = 0.0.0.0"
   notify: restart mariadb
   become: true
+  tags: configure_mariadb
 
 - name: Ensure MariaDB service is enabled and running
   systemd:
@@ -61,16 +70,19 @@
     state: started
     enabled: yes
   become: true
+  tags: configure_mariadb
 
 - name: Check if MariaDB root password already exists
   stat:
     path: /root/.mariapass
   register: mariadb_password_file
+  tags: configure_root
 
 - name: Generate random root password
   command: openssl rand -base64 10
   register: new_mysql_root_password
   when: not mariadb_password_file.stat.exists
+  tags: configure_root
 
 - name: Store the password in a file
   copy:
@@ -78,37 +90,17 @@
     dest: "/root/.mariapass"
     mode: 0600
   when: new_mysql_root_password is changed
+  tags: configure_root
 
 - name: Configure root password
   command: mysql -uroot -p"$(cat /root/.mariapass)" -e "SET PASSWORD FOR root@localhost = PASSWORD('{{ new_mysql_root_password.stdout }}');"
   when: new_mysql_root_password is changed
+  tags: configure_root
 
 - name: Set root to use the unix_socket plugin
   command: mysql -uroot -p"$(cat /root/.mariapass)" -e "UPDATE mysql.user SET plugin = 'unix_socket' WHERE User = 'root'; FLUSH PRIVILEGES;"
   when: new_mysql_root_password is changed
-
-- name: Check if MariaDB dbadmin password already exists
-  stat:
-    path: /root/.mariapass_dbadmin
-  register: dbadmin_password_file
-  become: true
-  tags: create_dbadmin
-
-- name: Generate random password for dbadmin
-  command: openssl rand -base64 10
-  register: new_dbadmin_password
-  become: true
-  when: not dbadmin_password_file.stat.exists
-  tags: create_dbadmin
-
-- name: Store the dbadmin password in a file
-  copy:
-    content: "{{ new_dbadmin_password.stdout }}"
-    dest: "/root/.mariapass_dbadmin"
-    mode: 0600
-  become: true
-  when: new_dbadmin_password is changed
-  tags: create_dbadmin
+  tags: configure_root
 
 - name: Read MariaDB root password from file
   slurp:
@@ -123,23 +115,11 @@
     login_password: "{{ mariapass['content'] | b64decode }}"
     login_unix_socket: /var/run/mysqld/mysqld.sock
     name: dbadmin
-    password: "{{ new_dbadmin_password.stdout }}"
+    password: "{{ dbadmin_password }}"
+    priv: "*.*:ALL,GRANT"
     host: "%"
     state: present
   become: true
-  when: new_dbadmin_password is changed
-  tags: create_dbadmin
-
-- name: Grant all privileges to dbadmin
-  mysql_user:
-    login_user: root
-    login_password: "{{ mariapass['content'] | b64decode }}"
-    login_unix_socket: /var/run/mysqld/mysqld.sock
-    name: dbadmin
-    priv: "*.*:ALL,GRANT"
-    host: "%"
-  become: true
-  when: new_dbadmin_password is changed
   tags: create_dbadmin
 
 - name: Check if Blackhole storage engine is installed
@@ -157,3 +137,99 @@
     mysql -e "INSTALL PLUGIN blackhole SONAME 'ha_blackhole';"
   when: blackhole_installed.rc != 0
   tags: install_plugin
+
+- name: Check if binary logging is enabled
+  shell: >
+    mysql -NBe "SHOW VARIABLES LIKE 'log_bin';" | grep -q ON
+  register: binary_logging
+  failed_when: false
+  changed_when: false
+  become: true
+  tags: configure_bin_log
+
+- name: Enable binary logging
+  blockinfile:
+    path: /etc/mysql/my.cnf
+    block: |
+      [mysqld]
+      log_bin = /var/log/mysql/mysql-bin.log
+      server_id = {{ ''.join(ansible_host.split('.')) }}
+  when: binary_logging.rc != 0
+  tags: configure_bin_log
+
+- name: Get the master host IP
+  set_fact:
+    master_host_ip: "{{ groups['mariadb'][0] }}"
+  tags: configure
+
+- name: Configure server as a replication master
+  mysql_replication:
+    mode: getprimary
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    primary_connect_retry: 60
+    primary_use_gtid: current_pos
+  when: inventory_hostname == master_host_ip
+  tags: configure_master
+
+- name: Create replication user
+  mysql_user:
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: replica_user
+    password: "{{ replication_password }}"
+    priv: "*.*:REPLICATION SLAVE"
+    host: "%"
+    state: present
+  become: true
+  when: inventory_hostname == master_host_ip
+  tags: configure_master
+
+- name: Stop server as a slave
+  mysql_replication:
+    mode: stopreplica
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  when: inventory_hostname != master_host_ip
+  tags: configure_slave
+
+- name: Reset server as a slave
+  mysql_replication:
+    mode: resetreplica
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  when: inventory_hostname != master_host_ip
+  tags: configure_slave
+
+- name: Configure server as a slave
+  mysql_replication:
+    mode: changeprimary
+    master_host: "{{ master_host_ip }}"
+    master_user: replica_user
+    master_password: "{{ replication_password }}"
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  when: inventory_hostname != master_host_ip
+  tags: configure_slave
+
+- name: Start server as a slave
+  mysql_replication:
+    mode: startreplica
+    login_user: root
+    login_password: "{{ mariapass['content'] | b64decode }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  when: inventory_hostname != master_host_ip
+  tags: configure_slave
+
+- name: Restart MariaDB service
+  systemd:
+    name: mariadb
+    state: restarted
+    enabled: yes
+  become: true
+  tags: finish_configuration

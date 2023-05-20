@@ -216,3 +216,5 @@ terraform.rc
 
 # Ignore the ansible inventory because it always recreates
 inventory.yml
+
+.DS_Store
