@@ -5,6 +5,17 @@ admin_variables=
   admin_credentials="{{ proxysql.admin_user.name}}:{{ proxysql.admin_user.password }}"
   mysql_ifaces="0.0.0.0:6032"
   refresh_interval=2000
+  admin_cluster_username="cluster_user"
+  admin_cluster_password="{{ proxysql.admin_user.password }}"
+  admin-checksum_mysql_query_rules=true
+  admin-checksum_mysql_servers=true
+  admin-checksum_mysql_users=true
+  admin-cluster_check_interval_ms=1000
+  admin-cluster_check_status_frequency=10
+  admin-cluster_mysql_query_rules_save_to_disk=true
+  admin-cluster_mysql_servers_save_to_disk=true
+  admin-cluster_mysql_users_save_to_disk=true
+  admin-cluster_proxysql_servers_save_to_disk=true
 }
 
 mysql_variables=
@@ -31,25 +42,39 @@ mysql_variables=
 
 mysql_servers =
 (
-  {% for host in groups['mariadb']['hosts'] %}
-  { address="{{ host }}" , port=3306 , hostgroup=0, max_connections=100 },
-  {% endfor %}
+    { address="{{ groups['mariadb'][0] }}" , port=3306 , hostgroup=0, max_connections=100 },
+{% for host in groups['mariadb'][1::] %}
+    { address="{{ host }}" , port=3306 , hostgroup=1, max_connections=100 },
+{% endfor %}
 )
 
 
 mysql_users =
 (
-  { username = "{{ mariadb.special_users.proxysql.name }}", password = "{{ mariadb.special_users.proxysql.password }}", default_hostgroup = 0 }
+  { username = "proxysql", password = "{{ mariadb.special_users.proxysql.password }}", default_hostgroup = 0 }
+{% for user in mariadb.users %}
+  { username = "{{ user }}", password = "{{ user.password }}", default_hostgroup = 0 }
+{% endfor %}
+{% for user in mariadb.special_users %}
+  { username = "{{ user }}", password = "{{ user.password }}", default_hostgroup = 0 }
+{% endfor %}
 )
-
 
 mysql_query_rules =
 (
-  {
-    rule_id=1
-    active=1
-    match_pattern="^SELECT .* FOR UPDATE$"
-    destination_hostgroup=0
-    apply=1
-  }
+    {
+        rule_id=1
+        active=1
+        match_pattern="^SELECT .* FOR UPDATE$"
+        destination_hostgroup=0
+        apply=1
+      },
+      {
+        rule_id=2
+        active=1
+        match_pattern="^.*"
+        destination_hostgroup=1
+        apply=1
+      }
+      
 )

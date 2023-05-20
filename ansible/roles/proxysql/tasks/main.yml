@@ -39,20 +39,6 @@
     - 8302
   tags: ports
 
-- name: Remove old ProxySQL repository file
-  file:
-    path: /etc/apt/sources.list.d/proxysql.list
-    state: absent
-  become: true
-  tags: proxysql
-
-- name: Remove old ProxySQL repository file (focal)
-  file:
-    path: /etc/apt/sources.list.d/repo_proxysql_com_ProxySQL_proxysql_2_5_x_focal.list
-    state: absent
-  become: true
-  tags: proxysql
-
 - name: Install prerequisite packages
   apt:
     name:
@@ -61,19 +47,20 @@
       - apt-transport-https
       - ca-certificates
       - gnupg
+      - mysql-client
     state: present
   become: true
-  tags: proxysql
+  tags: proxysql_install
 
 - name: Add ProxySQL repository key
   shell: wget -O - 'https://repo.proxysql.com/ProxySQL/proxysql-2.5.x/repo_pub_key' | apt-key add -
   become: true
-  tags: proxysql
+  tags: proxysql_install
 
 - name: Add ProxySQL repository
   shell: echo deb https://repo.proxysql.com/ProxySQL/proxysql-2.5.x/$(lsb_release -sc)/ ./ | tee /etc/apt/sources.list.d/proxysql.list
   become: true
-  tags: proxysql
+  tags: proxysql_install
 
 - name: Install ProxySQL
   apt:
@@ -81,7 +68,7 @@
     state: latest
     update_cache: yes
   become: true
-  tags: proxysql
+  tags: proxysql_install
 
 - name: Configure ProxySQL
   template:
@@ -89,7 +76,7 @@
     dest: /etc/proxysql.cnf
   become: true
   notify: restart proxysql
-  tags: proxysql
+  tags: proxysql_configure
 
 - name: Enable and start ProxySQL service
   systemd:
@@ -97,4 +84,4 @@
     state: started
     enabled: true
   become: true
-  tags: proxysql
+  tags: proxysql_configure
