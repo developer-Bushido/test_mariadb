@@ -5,12 +5,12 @@ resource "null_resource" "ansible_inventory" {
 
   provisioner "local-exec" {
     command = "echo '${templatefile("${path.module}/../ansible/inventory.tpl", {
-      web_ip     = aws_instance.my_WEB.public_ip,
-      master_ips = aws_instance.my_DB_master.*.public_ip,
-      slave_ips  = aws_instance.my_DB_slave.*.public_ip
+      orchestrator_ips = aws_instance.orchestrator.*.public_ip,
+      proxysql_ips     = aws_instance.proxysql.*.public_ip,
+      mariadb_ips      = aws_instance.mariadb.*.public_ip
       })
     }' > ../ansible/inventory.yml"
   }
 
-  depends_on = [aws_instance.my_WEB, aws_instance.my_DB_master, aws_instance.my_DB_slave]
+  depends_on = [aws_instance.orchestrator, aws_instance.proxysql, aws_instance.mariadb]
 }

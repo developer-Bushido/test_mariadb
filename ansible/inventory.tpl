@@ -1,18 +1,18 @@
 ---
 all:
   children:
-    web:
+    orschestrators:
       hosts:
-        ${web_ip}:
-    db:
-      children:
-        master_db:
-          hosts:
-%{ for ip in master_ips ~}
-            ${ip}:
+%{ for ip in orchestrator_ips ~}
+        ${ip}:
 %{ endfor ~}
-        slave_db:
-          hosts:
-%{ for ip in slave_ips ~}
-            ${ip}:
+    proxysql:
+      hosts:
+%{ for ip in proxysql_ips ~}
+        ${ip}:
+%{ endfor ~}
+    mariadb:
+      hosts:
+%{ for ip in mariadb_ips ~}
+        ${ip}:
 %{ endfor ~}
