@@ -2,4 +2,16 @@
   hosts: mariadb
   become: true
   roles:
-    - role: mariadb
+    - mariadb
+  vars_files:
+    - ../vault.yml
+
+- name: ProxySQLs
+  hosts: proxysql
+  become: true
+  roles:
+    - proxysql
+    - consul_agent
+
+  vars_files:
+    - ../vault.yml
