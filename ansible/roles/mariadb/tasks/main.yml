@@ -153,6 +153,7 @@
   tags:
     - configure_master
     - configure_slave
+    - sync_users
 
 - name: Create replication_user
   mysql_user:
@@ -178,6 +179,15 @@
     primary_use_gtid: current_pos
   when: inventory_hostname == master_host_ip
   tags: configure_master
+
+- name: Enable read_only on slave servers
+  blockinfile:
+    path: /etc/mysql/my.cnf
+    block: |
+      [mysqld]
+      read_only = ON
+  when: inventory_hostname != master_host_ip
+  tags: configure_slave
 
 - name: Stop server as a slave
   mysql_replication:
@@ -239,7 +249,7 @@
     host: "{{ item.value.host }}"
     state: present
   loop: "{{ mariadb.special_users | dict2items }}"
-  no_log: True
+  # no_log: True
   when: inventory_hostname == master_host_ip
   tags: sync_users
 
@@ -254,7 +264,7 @@
     host: "{{ item.value.host | default('%') }}"
     state: present
   loop: "{{ mariadb.users | dict2items }}"
-  no_log: True
+  # no_log: True
   when: inventory_hostname == master_host_ip
   tags: sync_users
 

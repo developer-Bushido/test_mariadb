@@ -1,4 +1,24 @@
 ---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+  become: true
+  tags: install
+
+- name: Ensure python3-pip is installed
+  apt:
+    name: python3-pip
+    state: present
+  become: true
+  tags: install
+
+- name: Ensure necessary Python MySQL library is installed
+  pip:
+    name: PyMySQL
+    state: present
+  become: true
+  tags: install
+
 - name: Install UFW
   apt:
     name: ufw
@@ -33,7 +53,7 @@
   ufw:
     rule: allow
     port: "{{ item }}"
-    proto: tcp
+    proto: udp
   with_items:
     - 8301
     - 8302
@@ -70,6 +90,12 @@
   become: true
   tags: proxysql_install
 
+- name: Get the master host IP
+  set_fact:
+    master_host_ip: "{{ groups['mariadb'][0] }}"
+  tags:
+    - proxysql_configure
+
 - name: Configure ProxySQL
   template:
     src: proxysql.cnf.j2
@@ -85,3 +111,127 @@
     enabled: true
   become: true
   tags: proxysql_configure
+
+- name: Add monitor users
+  community.proxysql.proxysql_mysql_users:
+    login_user: "admin"
+    login_password: "{{ proxysql_users.admin.password }}"
+    username: "monitor"
+    password: "monitor"
+    state: present
+    default_hostgroup: 1
+    load_to_runtime: true
+  tags:
+    - proxysql_configure
+
+- name: Get the master host IP
+  set_fact:
+    master_host_ip: "{{ groups['mariadb'][0] }}"
+  tags:
+    - proxysql_configure
+
+- name: Add master server
+  community.proxysql.proxysql_backend_servers:
+    login_user: "admin"
+    login_password: "{{ proxysql_users.admin.password }}"
+    hostname: "{{ item }}"
+    hostgroup_id: 1
+    state: present
+    load_to_runtime: false
+  loop: "{{ groups['mariadb'] }}"
+  when: item == master_host_ip
+  tags:
+    - proxysql_configure
+
+- name: Add slave servers
+  community.proxysql.proxysql_backend_servers:
+    login_user: "admin"
+    login_password: "{{ proxysql_users.admin.password }}"
+    hostname: "{{ item }}"
+    hostgroup_id: 2
+    max_replication_lag: 10
+    state: present
+    load_to_runtime: false
+  loop: "{{ groups['mariadb'] }}"
+  when: item != master_host_ip
+  tags:
+    - proxysql_configure
+
+- name: Add a replication hostgroup
+  community.proxysql.proxysql_replication_hostgroups:
+    login_user: "admin"
+    login_password: "{{ proxysql_users.admin.password }}"
+    writer_hostgroup: 1
+    reader_hostgroup: 2
+    state: present
+    load_to_runtime: false
+  tags:
+    - proxysql_configure
+
+- name: Add READ rule
+  community.proxysql.proxysql_query_rules:
+    login_user: admin
+    login_password: "{{ proxysql_users.admin.password }}"
+    match_pattern: "^SELECT.*"
+    destination_hostgroup: 2
+    active: 1
+    retries: 3
+    state: present
+    apply: true
+    load_to_runtime: true
+  tags:
+    - proxysql_configure
+
+- name: Add WRITE rule
+  community.proxysql.proxysql_query_rules:
+    login_user: admin
+    login_password: "{{ proxysql_users.admin.password }}"
+    match_pattern: "^SELECT.*FOR UPDATE$"
+    destination_hostgroup: 1
+    active: 1
+    retries: 3
+    state: present
+    apply: true
+    load_to_runtime: true
+  tags:
+    - proxysql_configure
+
+- name: Add special users
+  community.proxysql.proxysql_mysql_users:
+    login_user: "admin"
+    login_password: "{{ proxysql_users.admin.password }}"
+    username: "{{ item.key }}"
+    password: "{{ item.value.password }}"
+    state: present
+    default_hostgroup: 1
+    load_to_runtime: true
+  loop: "{{ mariadb.special_users | dict2items }}"
+  tags:
+    - proxysql_configure
+    - sync_users
+
+- name: Add regular users
+  community.proxysql.proxysql_mysql_users:
+    login_user: "admin"
+    login_password: "{{ proxysql_users.admin.password }}"
+    username: "{{ item.key }}"
+    password: "{{ item.value.password }}"
+    state: present
+    load_to_runtime: true
+    default_hostgroup: 2
+  loop: "{{ mariadb.users | dict2items }}"
+  tags:
+    - proxysql_configure
+    - sync_users
+
+- name: Remove users
+  community.proxysql.proxysql_mysql_users:
+    login_user: "admin"
+    login_password: "{{ proxysql_users.admin.password }}"
+    config_file: "~/proxysql.cnf"
+    username: "{{ item }}"
+    state: absent
+  loop: "{{ mariadb.absent_users }}"
+  tags:
+    - proxysql_configure
+    - sync_users

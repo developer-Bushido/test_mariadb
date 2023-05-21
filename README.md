@@ -61,6 +61,11 @@ region = <REGION>
 Then, create a KeyPair in AWS with the name admin_kp.pem and download it to the project root.
 
 
+### Ansible install role from galaxy ###
+```bash
+ansible-galaxy collection install community.proxysql --upgrade
+```
+
 ### Deployment
 
 1. Navigate to the **`./terraform/`** directory and run terraform init, then terraform apply.
