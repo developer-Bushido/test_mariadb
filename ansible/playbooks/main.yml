@@ -11,6 +11,5 @@
   become: true
   roles:
     - proxysql
-    - consul_agent
   vars_files:
     - ../vault.yml

@@ -1,0 +1,19 @@
+---
+- name: proxysql | set_facts | set admin_credentials_list
+  set_fact:
+    admin_credentials_list: "{{ admin_credentials_list | default([]) + [ item.username + ':' + item.password ] }}"
+  loop:
+    - {
+        username: "{{ proxysql_admin_user }}",
+        password: "{{ proxysql_admin_password }}",
+      }
+    - {
+        username: "{{ proxysql_admin_cluster_username }}",
+        password: "{{ proxysql_admin_cluster_password }}",
+      }
+  when: item.username and item.password
+  no_log: true
+
+- name: Get the master host IP
+  set_fact:
+    master_host_ip: "{{ groups['mariadb'][0] }}"

@@ -1,0 +1,23 @@
+- name: Add READ rule
+  community.proxysql.proxysql_query_rules:
+    login_user: "{{ proxysql_admin_user }}"
+    login_password: "{{ proxysql_admin_password }}"
+    match_digest: "^SELECT.*"
+    destination_hostgroup: 2
+    active: 1
+    retries: 3
+    state: present
+    apply: true
+    load_to_runtime: true
+
+- name: Add WRITE rule
+  community.proxysql.proxysql_query_rules:
+    login_user: "{{ proxysql_admin_user }}"
+    login_password: "{{ proxysql_admin_password }}"
+    match_digest: ".*"
+    destination_hostgroup: 1
+    active: 1
+    retries: 3
+    state: present
+    apply: true
+    load_to_runtime: true
