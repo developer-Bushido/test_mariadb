@@ -213,8 +213,8 @@ resource "aws_security_group_rule" "SGR_proxysql_admin_SSH" {
 resource "aws_security_group_rule" "SGR_proxysql_proxysql_admin_client" {
   security_group_id = aws_security_group.proxysql_security_group.id
   type              = "ingress"
-  from_port         = 6032
-  to_port           = 6032
+  from_port         = 6070
+  to_port           = 6070
   protocol          = "tcp"
   cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
 }

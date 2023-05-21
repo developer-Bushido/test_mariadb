@@ -1,0 +1,31 @@
+---
+- name: Add special users
+  community.proxysql.proxysql_mysql_users:
+    login_user: "{{ proxysql_admin_user }}"
+    login_password: "{{ proxysql_admin_password }}"
+    username: "{{ item.key }}"
+    password: "{{ item.value.password }}"
+    state: present
+    default_hostgroup: 1
+    load_to_runtime: true
+  loop: "{{ mariadb.special_users | dict2items }}"
+
+- name: Add regular users
+  community.proxysql.proxysql_mysql_users:
+    login_user: "{{ proxysql_admin_user }}"
+    login_password: "{{ proxysql_admin_password }}"
+    username: "{{ item.key }}"
+    password: "{{ item.value.password }}"
+    state: present
+    default_hostgroup: 2
+    load_to_runtime: true
+  loop: "{{ mariadb.users | dict2items }}"
+
+- name: Remove users
+  community.proxysql.proxysql_mysql_users:
+    login_user: "{{ proxysql_admin_user }}"
+    login_password: "{{ proxysql_admin_password }}"
+    config_file: "~/proxysql.cnf"
+    username: "{{ item }}"
+    state: absent
+  loop: "{{ mariadb.absent_users }}"

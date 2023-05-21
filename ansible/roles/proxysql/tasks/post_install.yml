@@ -1,0 +1,38 @@
+---
+- name: proxysql | post_install | add master server
+  community.proxysql.proxysql_backend_servers:
+    login_user: "{{ proxysql_admin_user }}"
+    login_password: "{{ proxysql_admin_password }}"
+    login_host: "{{ proxysql_admin_bind_address }}"
+    login_port: "{{ proxysql_admin_port }}"
+    hostname: "{{ item }}"
+    hostgroup_id: 1
+    state: present
+    load_to_runtime: true
+  loop: "{{ groups['mariadb'] }}"
+  when: item == master_host_ip
+
+- name: Add slave servers
+  community.proxysql.proxysql_backend_servers:
+    login_user: "{{ proxysql_admin_user }}"
+    login_password: "{{ proxysql_admin_password }}"
+    login_host: "{{ proxysql_admin_bind_address }}"
+    login_port: "{{ proxysql_admin_port }}"
+    hostname: "{{ item }}"
+    hostgroup_id: 2
+    max_replication_lag: 10
+    state: present
+    load_to_runtime: true
+  loop: "{{ groups['mariadb'] }}"
+  when: item != master_host_ip
+
+- name: Add a replication hostgroup
+  community.proxysql.proxysql_replication_hostgroups:
+    login_user: "{{ proxysql_admin_user }}"
+    login_password: "{{ proxysql_admin_password }}"
+    login_host: "{{ proxysql_admin_bind_address }}"
+    login_port: "{{ proxysql_admin_port }}"
+    writer_hostgroup: 1
+    reader_hostgroup: 2
+    state: present
+    load_to_runtime: false
