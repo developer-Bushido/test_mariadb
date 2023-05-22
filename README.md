@@ -104,7 +104,7 @@ mariadb:
 
 ```
 
-3. Run **`ansible-playbook -i inventory.yml playbooks/main.yml --ask-vault-pass`**. Then ansible will install and tune the infrastructure.
+4. Run **`ansible-playbook -i inventory.yml playbooks/main.yml --ask-vault-pass`**. Then ansible will install and tune the infrastructure.
 
 
 ## Built With
