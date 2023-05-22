@@ -218,3 +218,6 @@ terraform.rc
 inventory.yml
 
 .DS_Store
+
+# Ansible vault-file
+ansible/vault.yml
