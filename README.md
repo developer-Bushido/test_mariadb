@@ -68,13 +68,44 @@ ansible-galaxy collection install community.proxysql --upgrade
 
 ### Deployment
 
-1. Navigate to the **`./terraform/`** directory and run terraform init, then terraform apply.
+1. Navigate to the **`./terraform/`** directory and run **`terraform init`**, then **`terraform apply`**.
 
 2. After applying, you can access the hosts from the inventory using the command **`ssh -i admin_kp.pem ubuntu@<HOST_IP>`**.
 
-3. Navigate to the **`./ansible/`** directory and run **`ansible-playbook -i inventory.yml playbooks/main.yml --extra-vars "replication_password=<REPLICATION_USER_PASSWORD>"`**. In extra-vars, specify the password for the REPLICATION_USER, which will be used for replication.
+3. Navigate to the **`./ansible/`** directory and run **`ansible-vault create vault.yml`** to add users with passwords and privileges. Use the next structure:
+```yaml
+mariadb:
+  replica_user:
+    password: replica_user_password
+    privileges: '*.*:REPLICATION SLAVE'
+    host: '%'
 
-Passwords for root and dbadmin are stored in **`/root/`** on each of the hosts - **`.mariapass`** and **`.mariapass_dbadmin`**.
+  special_users:
+    dbadmin:
+      password: dbadmin_password
+      privileges: '*.*:ALL'
+      host: '%'
+
+    monitor:
+      password: monitor
+      privileges: '*.*:SELECT,REPLICATION SLAVE,SHOW DATABASES,PROCESS'
+      host: '%'
+
+  users:
+    user1:
+        password: pass1
+        host: '%'
+    user2:
+        password: pass2
+        host: '%'
+
+  absent_users:
+    - user3
+
+```
+
+3. Run **`ansible-playbook -i inventory.yml playbooks/main.yml --ask-vault-pass`**. Then ansible will install and tune the infrastructure.
+
 
 ## Built With
 
