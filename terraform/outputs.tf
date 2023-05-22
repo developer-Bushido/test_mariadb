@@ -13,3 +13,7 @@ output "mariadb_ips" {
   description = "Public IPs of the MariaDB servers"
 }
 
+output "load_balancer_ip" {
+  value       = aws_lb.lb.dns_name
+  description = "The DNS address of the load balancer"
+}
