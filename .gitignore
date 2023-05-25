@@ -217,7 +217,8 @@ terraform.rc
 # Ignore the ansible inventory because it always recreates
 inventory.yml
 
+# Ansible vault-file
+vault.yml
+
 .DS_Store
 
-# Ansible vault-file
-ansible/vault.yml

@@ -1,0 +1,32 @@
+mariadb:
+  replica_user:
+    password: replica_password
+    privileges: "*.*:REPLICATION SLAVE"
+    host: "%"
+
+  special_users:
+    dbadmin:
+      password: dbadmin_password
+      privileges: "*.*:ALL"
+      host: "%"
+
+    proxysql:
+      password: proxysql_password
+      privileges: "*.*:ALL"
+      host: "%"
+
+    monitor:
+      password: monitor
+      privileges: "*.*:SELECT,REPLICATION SLAVE,SHOW DATABASES,PROCESS"
+      host: "%"
+
+  users:
+    user1:
+      password: user1_password
+      host: "%"
+    user2:
+      password: user2_password
+      host: "%"
+
+  absent_users:
+    - user3
