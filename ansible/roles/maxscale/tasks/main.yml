@@ -1,0 +1,5 @@
+---
+- name: Install maxscale
+  ansible.builtin.include_tasks: maxscale.yml
+  tags:
+    - maxscale

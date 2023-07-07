@@ -1,0 +1,32 @@
+---
+maxscale_major_version: 6.4
+maxscale_minor_version: 7
+maxscale_packages:
+  - "maxscale-{{ maxscale_major_version }}.{{ maxscale_minor_version }}"
+
+maxscale_runtime_config_path: /var/lib/maxscale/maxscale.cnf.d
+maxscale_truncate_runtime_config: false
+
+maxscale_systemd_allow_restart: false
+
+maxscale_watchdog_sec: 60
+
+# maxscale_maxctl_admin_user: admin
+# maxscale_maxctl_admin_pass: mariadb
+
+maxscale_maxctl_default_admin_user: admin
+maxscale_maxctl_default_admin_pass: mariadb
+
+maxscale_config:
+  - name: maxscale
+    options:
+      threads: auto
+      admin_host: "0.0.0.0"
+      admin_secure_gui: false
+
+maxscale_filters: []
+
+# maxscale_user_list:
+#   - user: "test"
+#     password: "test"
+#     admin: true

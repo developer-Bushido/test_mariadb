@@ -1,0 +1,114 @@
+{% set default_options_server = {
+    'type': 'server',
+    'port': 3306,
+    'protocol': 'MariaDBBackend',
+    'proxy_protocol': True
+} %}
+
+{% set default_options_monitor = {
+    'type': 'monitor',
+    'module': 'mariadbmon',
+    'auto_failover': True,
+    'auto_rejoin': True,
+    'monitor_interval': '2s',
+    'backend_connect_timeout': '6s',
+    'backend_write_timeout': '6s',
+    'backend_read_timeout': '6s',
+    'backend_connect_attempts': 2,
+    'enforce_read_only_slaves': 1
+} %}
+
+{% set default_options_service = {
+    'type': 'service',
+    'router': 'readconnroute',
+    'max_replication_lag': '30m'
+} %}
+
+{% set default_options_listener = {
+    'type': 'listener',
+    'protocol': 'mariadbclient',
+    'address': '0.0.0.0'
+} %}
+
+##
+# GLOBAL
+##
+
+[maxscale]
+threads=auto
+admin_host=0.0.0.0
+admin_port=8989
+admin_secure_gui=false
+load_persisted_configs=false
+
+##
+# BACKENDS
+##
+
+{% for host in groups['mariadb'] %}
+[server{{ loop.index }}]
+{% for k, v in default_options_server.items() %}
+{{ k }}={{ v }}
+{% endfor %}
+address={{ host }}
+
+{% endfor %}
+
+##
+# MONITORS
+##
+
+[Monitor]
+{% for k, v in default_options_monitor.items() -%}
+{{ k }}={{ v }}
+{% endfor -%}
+servers={% for host in groups['mariadb'] -%}
+server{{ loop.index }}{% if not loop.last %}, {% endif %}
+{% endfor -%}{{ '' }}
+user=maxscale
+password={{ mariadb.special_users.maxscale.password }}
+replication_user=replica_user
+replication_password={{ mariadb.replica_user.password }}
+
+##
+# SERVICES
+##
+
+[Read-Write_Service]
+{% for k, v in default_options_service.items() -%}
+{{ k }}={{ v }}
+{% endfor -%}
+servers=server1
+user=maxscale
+password={{ mariadb.special_users.maxscale.password }}
+router_options=master
+
+[Read-Only_Service]
+{% for k, v in default_options_service.items() -%}
+{{ k }}={{ v }}
+{% endfor -%}
+servers={% for idx in range(1, groups['mariadb']|length) -%}
+server{{ loop.index + 1 }}{% if not loop.last %}, {% endif %}
+{% endfor -%}{{ '' }}
+user=maxscale
+password={{ mariadb.special_users.maxscale.password }}
+router_options=slave
+
+
+##
+# LISTENERS
+##
+
+[Read-Write_Listener]
+{% for k, v in default_options_listener.items() %}
+{{ k }}={{ v }}
+{% endfor %}
+service=Read-Write_Service
+port=4001
+
+[Read-Only_Listener]
+{% for k, v in default_options_listener.items() %}
+{{ k }}={{ v }}
+{% endfor %}
+service=Read-Only_Service
+port=4002

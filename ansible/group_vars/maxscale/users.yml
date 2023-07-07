@@ -1,0 +1,24 @@
+---
+public_key_backup_stages: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILFsipK68WUTx/IrJ/VwxmYfz7D9xSJIfzdem9ZH3bk1"
+
+users: "{{ (users_full_access + users_custom_access) | unique }}"
+users_custom_access: []
+users_full_access:
+  - user: "ansible"
+    groups:
+      production:
+        env: "wheel,adm"
+    public_key: "{{ public_key_ansible }}"
+  - user: "deploy"
+    groups:
+      production:
+        env: "wheel,adm"
+    public_key: "{{ public_key_infrastructure }}"
+  - user: "backup"
+    groups:
+      production:
+        env: "wheel,adm"
+  - user: "lexusrules"
+    groups:
+      production:
+        env: "wheel,adm"

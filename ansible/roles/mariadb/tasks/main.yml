@@ -250,7 +250,6 @@
     state: present
   loop: "{{ mariadb.special_users | dict2items }}"
   # no_log: True
-  when: inventory_hostname == master_host_ip
   tags: sync_users
 
 - name: Add regular users

@@ -1,0 +1,65 @@
+---
+vault_project: "stripchat"
+
+maxscale_major_version: 6.4
+maxscale_minor_version: 7
+
+maxscale_systemd_allow_restart: true
+
+maxscale_passive_keepalive_master: 'false'
+maxscale_passive_keepalive_backup: 'true'
+maxscale_passive_keepalive_fault: 'true'
+
+keepalived_interface: eth0
+keepalived_state: "BACKUP"
+keepalived_unicast: true
+keepalived_advert: 1
+
+keepalived_hosts_group: "{{ groups['dev_maxscale'] }}"
+keepalived_password: "{{ vault.stripchat.maxscale.keepalived.pass }}"
+keepalived_router_id: "{{ conn.maxscale.hotel.router }}"
+keepalived_vip_ip: "{{ conn.maxscale.hotel.vip }}"
+
+maxscale_user_pass: "{{ vault.stripchat.mariadb.users.maxscale }}"
+maxscale_mariadb_repl_pass: "{{ vault.stripchat.mariadb.users.repl }}"
+
+maxscale_maxctl_admin_user: maxscale_admin
+maxscale_maxctl_admin_pass: "{{ vault.stripchat.maxscale.users.maxscale_admin }}"
+
+maxscale_user_list:
+  - user: "exabgp"
+    password: "{{ vault.stripchat.maxscale.users.exabgp }}"
+    admin: false
+
+keepalived_track_script: |
+  #!/bin/bash
+  /usr/sbin/pidof maxscale
+
+keepalived_notify_script: |
+  #!/bin/bash
+  TYPE=$1
+  NAME=$2
+  STATE=$3
+  OUTFILE=/tmp/state.txt
+
+  case $STATE in
+  "MASTER") echo "Setting this MaxScale node to active mode" > $OUTFILE
+                maxctrl -u {{ maxscale_maxctl_admin_user }} -p {{ maxscale_maxctl_admin_pass }} \
+                    alter maxscale passive {{ maxscale_passive_keepalive_master }}
+                exit 0
+                ;;
+  "BACKUP") echo "Setting this MaxScale node to passive mode" > $OUTFILE
+                maxctrl -u {{ maxscale_maxctl_admin_user }} -p {{ maxscale_maxctl_admin_pass }} \
+                    alter maxscale passive {{ maxscale_passive_keepalive_backup }}
+                sleep 10 && systemctl restart maxscale
+                exit 0
+                ;;
+  "FAULT")  echo "MaxScale failed the status check." > $OUTFILE
+                maxctrl -u {{ maxscale_maxctl_admin_user }} -p {{ maxscale_maxctl_admin_pass }} \
+                    alter maxscale passive {{ maxscale_passive_keepalive_fault }}csd
+                exit 0
+                ;;
+      *)     echo "Unknown state" > $OUTFILE
+                exit 1
+                ;;
+  esac

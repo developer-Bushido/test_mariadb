@@ -38,7 +38,7 @@ resource "aws_security_group_rule" "SGR_orchestrator_admin_SSH" {
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
+  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.response_body))]
 }
 
 resource "aws_security_group_rule" "SGR_orchestrator_admin_WEB_client" {
@@ -47,7 +47,7 @@ resource "aws_security_group_rule" "SGR_orchestrator_admin_WEB_client" {
   from_port         = 3000
   to_port           = 3000
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
+  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.response_body))]
 }
 
 resource "aws_security_group_rule" "SGR_orchestrator_consul_admin_WEB_client" {
@@ -56,7 +56,7 @@ resource "aws_security_group_rule" "SGR_orchestrator_consul_admin_WEB_client" {
   from_port         = 8500
   to_port           = 8500
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
+  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.response_body))]
 }
 
 ###########################################################################################
@@ -207,7 +207,7 @@ resource "aws_security_group_rule" "SGR_proxysql_admin_SSH" {
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
+  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.response_body))]
 }
 
 resource "aws_security_group_rule" "SGR_proxysql_proxysql_admin_client" {
@@ -216,7 +216,7 @@ resource "aws_security_group_rule" "SGR_proxysql_proxysql_admin_client" {
   from_port         = 6070
   to_port           = 6070
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
+  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.response_body))]
 }
 
 resource "aws_security_group_rule" "SGR_proxysql_proxysql_client" {
@@ -257,7 +257,7 @@ resource "aws_security_group_rule" "SGR_mariadb_admin_SSH" {
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
+  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.response_body))]
 }
 
 resource "aws_security_group_rule" "SGR_mariadb_admin" {
@@ -266,5 +266,5 @@ resource "aws_security_group_rule" "SGR_mariadb_admin" {
   from_port         = 3306
   to_port           = 3306
   protocol          = "tcp"
-  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.body))]
+  cidr_blocks       = [format("%s/32", chomp(data.http.current_ip.response_body))]
 }

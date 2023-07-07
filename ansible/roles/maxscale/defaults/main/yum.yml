@@ -1,0 +1,13 @@
+---
+maxscale_yum_repo: |
+  [mariadb-maxscale]
+  name = MariaDB MaxScale
+  baseurl = https://nexus.stripchat.tech/repository/maxscale/{{ maxscale_major_version }}/yum/rhel/$releasever/$basearch
+  gpgcheck = 0
+  enabled = 1
+
+  [mariadb-tools]
+  name = MariaDB Tools
+  baseurl = https://downloads.mariadb.com/Tools/rhel/$releasever/$basearch
+  gpgcheck = 0
+  enabled = 1

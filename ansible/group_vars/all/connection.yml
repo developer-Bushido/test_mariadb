@@ -1,0 +1,10 @@
+---
+
+conn:
+  maxscale:
+    aws:
+      vip: "{{ lookup('dig', 'my-lb-99db39039446f4d8.elb.eu-north-1.amazonaws.com') }}"
+      router: 71
+      ports:
+        main_rw: 4001
+        main_ro: 4002
