@@ -1,0 +1,109 @@
+---
+default_options_server: &default_options_server
+  type: server
+  port: 3306
+  protocol: MariaDBBackend
+  proxy_protocol: "true"
+
+default_options_monitor: &default_options_monitor
+  type: monitor
+  module: mariadbmon
+  auto_failover: true
+  auto_rejoin: true
+  monitor_interval: 2s
+  backend_connect_timeout: 6s
+  backend_write_timeout: 6s
+  backend_read_timeout: 6s
+  backend_connect_attempts: 2
+  enforce_read_only_slaves: 1
+
+default_options_service: &default_options_service
+  type: service
+  router: readconnroute
+  max_replication_lag: 30m
+
+default_options_listener: &default_options_listener
+  type: listener
+  protocol: mariadbclient
+  address: 0.0.0.0
+
+maxscale_config:
+  ##
+  # GLOBAL
+  ##
+
+  - name: maxscale
+    options:
+      threads: auto
+      admin_host: "0.0.0.0"
+      admin_port: 8989
+      admin_secure_gui: false
+      load_persisted_configs: false
+
+  ##
+  # BACKENDS
+  ##
+
+  - name: db-1
+    options:
+      <<: *default_options_server
+      address: "{{ lookup('dig', hostvars['dev-db-hotel-01'].ansible_host) }}"
+
+  - name: db-2
+    options:
+      <<: *default_options_server
+      address: "{{ lookup('dig', hostvars['dev-db-hotel-02'].ansible_host) }}"
+
+  - name: dev-db-hotel-03
+    options:
+      <<: *default_options_server
+      address: "{{ lookup('dig', hostvars['dev-db-hotel-03'].ansible_host) }}"
+
+  ##
+  # MONITORS
+  ##
+
+  - name: monitor_main
+    options:
+      <<: *default_options_monitor
+      servers: dev-db-hotel-01,dev-db-hotel-02,dev-db-hotel-03
+      user: maxscale
+      password: "{{ maxscale_user_pass }}"
+      replication_user: repl
+      replication_password: "{{ maxscale_mariadb_repl_pass }}"
+
+  ##
+  # SERVICES
+  ##
+
+  - name: service_main_rw
+    options:
+      <<: *default_options_service
+      servers: dev-db-hotel-01
+      user: maxscale
+      password: "{{ maxscale_user_pass }}"
+      router_options: master
+
+  - name: service_main_ro
+    options:
+      <<: *default_options_service
+      servers: dev-db-hotel-02,dev-db-hotel-03
+      user: maxscale
+      password: "{{ maxscale_user_pass }}"
+      router_options: slave
+
+  ##
+  # LISTENERS
+  ##
+
+  - name: listener_main_rw
+    options:
+      <<: *default_options_listener
+      service: service_main_rw
+      port: "{{ conn.maxscale.hotel.ports.main_rw }}"
+
+  - name: listener_main_ro
+    options:
+      <<: *default_options_listener
+      service: service_main_ro
+      port: "{{ conn.maxscale.hotel.ports.main_ro }}"

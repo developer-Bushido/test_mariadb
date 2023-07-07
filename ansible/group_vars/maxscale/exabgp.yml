@@ -1,0 +1,22 @@
+---
+# Global
+exabgp_router_asn: 65501
+exabgp_staging_asn: 65518
+exabgp_service_vip: "{{ conn.maxscale.hotel.bgp.vip }}"
+# exabgp_check_log_level: "DEBUG"
+exabgp_scripts_config_struct:
+  target_ip: "{{ exabgp_service_vip }}"
+  asn: "{{ exabgp_router_asn }}"
+  check_type: http
+  check_timeout: 1
+  target_port: 8989
+  http_check_url: /v1/services
+  http_check_headers:
+    Authorization: "Basic {{ ('exabgp' + ':' + vault.stripchat.maxscale.users.exabgp ) | b64encode }}"
+
+# AMS7
+exabgp_noc_router_config:
+  asn: "{{ exabgp_staging_asn }}"
+  routers:
+    - 172.31.252.49
+    - 172.31.252.50

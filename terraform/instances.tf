@@ -1,10 +1,10 @@
 provider "aws" {
-  region  = "eu-north-1"
+  # region  = "eu-west-3"
   profile = "default"
 }
 
 resource "aws_instance" "orchestrator" {
-  count                  = 3
+  count                  = 1
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
   key_name               = "admin_kp"
@@ -15,7 +15,7 @@ resource "aws_instance" "orchestrator" {
 }
 
 resource "aws_instance" "proxysql" {
-  count                  = 2
+  count                  = 3
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
   key_name               = "admin_kp"

@@ -1,0 +1,20 @@
+---
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: "reload systemd"
+
+- name: Restart maxscale
+  ansible.builtin.systemd:
+    name: maxscale
+    state: restarted
+    enabled: true
+  listen: "restart maxscale"
+  when: maxscale_systemd_allow_restart
+
+- name: Start maxscale
+  ansible.builtin.systemd:
+    name: maxscale
+    state: started
+    enabled: true
+  listen: "start maxscale"
