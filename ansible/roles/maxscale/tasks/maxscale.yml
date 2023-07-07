@@ -1,0 +1,109 @@
+---
+- name: "Add MaxScale repository key"
+  ansible.builtin.apt_key:
+    keyserver: "keyserver.ubuntu.com"
+    id: "CE1A3DD5E3C94F49"
+  tags:
+    - maxscale
+
+- name: "Add MaxScale repository"
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64,arm64,ppc64el] http://downloads.mariadb.com/MaxScale/6.4.7/ubuntu focal main"
+    state: present
+  tags:
+    - maxscale
+
+- name: "Update apt cache"
+  ansible.builtin.apt:
+    update_cache: yes
+  tags:
+    - maxscale
+
+- name: "Install MaxScale"
+  ansible.builtin.apt:
+    name: "maxscale=6.4.7*"
+    state: present
+  update_cache: yes
+  tags:
+    - maxscale
+
+- name: "Change systemd watchdog time"
+  ansible.builtin.lineinfile:
+    path: /lib/systemd/system/maxscale.service
+    state: present
+    regexp: '^WatchdogSec='
+    line: 'WatchdogSec={{ maxscale_watchdog_sec }}s'
+    backrefs: true
+  notify:
+    - reload systemd
+    - restart maxscale
+  tags:
+    - maxscale
+
+- name: "Create /etc/maxscale.d directory"
+  ansible.builtin.file:
+    path: /etc/maxscale.d
+    state: directory
+    mode: "0750"
+    owner: maxscale
+    group: maxscale
+  tags:
+    - maxscale
+
+- name: "Generate filters"
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "/etc/maxscale.d/filter_{{ item.name }}"
+    mode: "0640"
+    owner: maxscale
+    group: maxscale
+  with_items: "{{ maxscale_filters }}"
+  tags:
+    - maxscale
+
+- name: "Generate MaxScale's config"
+  ansible.builtin.template:
+    src: maxscale/maxscale.cnf.j2
+    dest: /etc/maxscale.cnf
+    mode: "0640"
+    owner: maxscale
+    group: maxscale
+  notify: restart maxscale
+  tags:
+    - maxscale
+
+- name: "Create access config"
+  ansible.builtin.template:
+    src: maxscale/user.maxctrl.cnf.j2
+    dest: "/root/.maxctrl.cnf"
+    owner: root
+    group: root
+    mode: 0600
+  no_log: true
+  tags:
+    - maxscale
+
+- name: "Find out all configs saved from runtime"
+  ansible.builtin.find:
+    paths: "{{ maxscale_runtime_config_path }}"
+    file_type: file
+  register: maxscale_runetime_configs
+  when:
+    - maxscale_truncate_runtime_config|bool
+  tags:
+    - maxscale
+
+- name: "Remove all runtime configs"
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  with_items: "{{ maxscale_runetime_configs.files }}"
+  when:
+    - maxscale_truncate_runtime_config|bool
+  tags:
+    - maxscale
+
+- name: "Flush handlers"
+  ansible.builtin.meta: flush_handlers
+  tags:
+    - maxscale
